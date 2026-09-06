@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root {
+      --header-bg: #fdf6d8;
+      --header-border: #e8dfa0;
+      --accent: #4a7c59;
+      --text-dark: #202124;
+      --text-muted: #5f6368;
+      --card-border: #e0e0e0;
+      --bg: #f7f8fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-dark);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 600;
+    }
+    .meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    button#refreshBtn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button#refreshBtn:hover { opacity: 0.9; }
+    button#refreshBtn:disabled { opacity: 0.6; cursor: default; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .day-card {
+      background: #fff;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 220px;
+    }
+    .day-header {
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--header-border);
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .day-name {
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .day-date {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .day-body {
+      padding: 10px 12px;
+      flex: 1;
+    }
+    .name-row {
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 6px;
+      background: #f1f6f2;
+      border-left: 3px solid var(--accent);
+    }
+    .empty-state {
+      color: #bbb;
+      font-size: 12px;
+      text-align: center;
+      padding-top: 30px;
+    }
+    .count-badge {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .loading, .error {
+      text-align: center;
+      padding: 60px 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .error { color: #c0392b; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <h1>مباشرات الاسبوع</h1>
+    <div class="meta">
+      <span id="lastUpdated"></span>
+      <button id="refreshBtn" onclick="loadSchedule()">Refresh</button>
+    </div>
+  </div>
+
+  <div id="content">
+    <div class="loading">Loading schedule…</div>
+  </div>
+
+  <script>
+    function loadSchedule() {
+      var btn = document.getElementById('refreshBtn');
+      btn.disabled = true;
+      btn.textContent = 'Refreshing…';
+      google.script.run
+        .withSuccessHandler(renderSchedule)
+        .withFailureHandler(renderError)
+        .getScheduleData();
+    }
+
+    function renderSchedule(data) {
+      var btn = document.getElementById('refreshBtn');
+      btn.disabled = false;
+      btn.textContent = 'Refresh';
+      document.getElementById('lastUpdated').textContent = 'Updated ' + data.generatedAt;
+
+      var grid = document.createElement('div');
+      grid.className = 'grid';
+
+      data.days.forEach(function (d) {
+        var card = document.createElement('div');
+        card.className = 'day-card';
+
+        var header = document.createElement('div');
+        header.className = 'day-header';
+        header.innerHTML =
+          '<div class="day-name">' + escapeHtml(d.day) + '</div>' +
+          '<div class="day-date">' + escapeHtml(d.date) + '</div>';
+        card.appendChild(header);
+
+        var body = document.createElement('div');
+        body.className = 'day-body';
+
+        if (d.names.length === 0) {
+          body.innerHTML = '<div class="empty-state">No vacations</div>';
+        } else {
+          d.names.forEach(function (name) {
+            var row = document.createElement('div');
+            row.className = 'name-row';
+            row.textContent = name;
+            body.appendChild(row);
+          });
+          var badge = document.createElement('div');
+          badge.className = 'count-badge';
+          badge.textContent = d.names.length + (d.names.length === 1 ? ' person' : ' people');
+          body.appendChild(badge);
+        }
+
+        card.appendChild(body);
+        grid.appendChild(card);
+      });
+
+      var content = document.getElementById('content');
+      content.innerHTML = '';
+      content.appendChild(grid);
+    }
+
+    function renderError(err) {
+      var btn = document.getElementById('refreshBtn');
+      btn.disabled = false;
+      btn.textContent = 'Refresh';
+      document.getElementById('content').innerHTML =
+        '<div class="error">Failed to load schedule: ' + escapeHtml(err.message || err) + '</div>';
+    }
+
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str == null ? '' : str;
+      return div.innerHTML;
+    }
+
+    loadSchedule();
+    // Auto-refresh every 5 minutes
+    setInterval(loadSchedule, 5 * 60 * 1000);
+  </script>
+
+</body>
+</html>
