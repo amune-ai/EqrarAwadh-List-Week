@@ -101,6 +101,17 @@
       background: #f1f6f2;
       border-left: 3px solid var(--accent);
     }
+    .name-row.sick {
+      background: #fdecea;
+      border-left-color: #c0392b;
+      color: #c0392b;
+      font-weight: 700;
+      animation: flicker 1s steps(1, end) infinite;
+    }
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
     .empty-state {
       color: #bbb;
       font-size: 12px;
@@ -176,6 +187,7 @@
           d.names.forEach(function (name) {
             var row = document.createElement('div');
             row.className = 'name-row';
+            if (/sick\s*leave/i.test(name)) row.className += ' sick';
             row.textContent = name;
             body.appendChild(row);
           });
