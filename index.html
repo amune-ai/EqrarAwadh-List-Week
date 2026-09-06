@@ -100,7 +100,11 @@
       margin-bottom: 6px;
       background: #f1f6f2;
       border-left: 3px solid var(--accent);
+      cursor: pointer;
+      user-select: none;
     }
+    .name-row:hover { filter: brightness(0.97); }
+    .name-row:active { filter: brightness(0.93); }
     .name-row.sick {
       background: #fdecea;
       border-left-color: #c0392b;
@@ -189,6 +193,13 @@
             row.className = 'name-row';
             if (/sick\s*leave/i.test(name)) row.className += ' sick';
             row.textContent = name;
+            row.title = 'Click to copy';
+            row.addEventListener('click', function () {
+              copyText(name);
+              var original = row.textContent;
+              row.textContent = 'Copied ✓';
+              setTimeout(function () { row.textContent = original; }, 800);
+            });
             body.appendChild(row);
           });
           var badge = document.createElement('div');
@@ -212,6 +223,26 @@
       btn.textContent = 'Refresh';
       document.getElementById('content').innerHTML =
         '<div class="error">Failed to load schedule: ' + escapeHtml(err.message || err) + '</div>';
+    }
+
+    // clipboard API is often blocked inside the Apps Script iframe, so fall back to execCommand
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(function () { fallbackCopy(text); });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
     }
 
     function escapeHtml(str) {
